@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Thanksgiving Maze</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #3b3530; font-family: "Comic Sans MS", "Chalkboard SE", "Marker Felt", cursive; color: #333; touch-action: manipulation; }
+  #app { max-width: 720px; margin: 0 auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 100%; }
+  h1 { margin: 0; text-align: center; color: #f6e7c8; font-size: 1.3rem; }
+  #quest { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .q { background: #f6efe0; border: 2px solid #555; border-radius: 10px; padding: 3px 8px; font-size: .85rem; opacity: .55; }
+  .q.done { opacity: 1; background: #cdeeb5; text-decoration: line-through; }
+  .q.now { opacity: 1; background: #ffe48a; box-shadow: 0 0 0 2px #e0a800; }
+  #board { width: 100%; background: #f6efe0; border: 3px solid #555; border-radius: 6px; display: block; }
+  #msg { background: #fffbe8; border: 3px solid #555; border-radius: 22px; padding: 8px 14px; min-height: 48px; font-size: 1rem; }
+  #dpad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 64px); gap: 6px; justify-content: center; margin: 4px auto; }
+  #dpad button { font-size: 1.6rem; border: 3px solid #555; border-radius: 14px; background: #f6efe0; touch-action: none; user-select: none; }
+  #dpad button:active { background: #ffe48a; }
+  #up { grid-column: 2; grid-row: 1; } #left { grid-column: 1; grid-row: 2; } #down { grid-column: 2; grid-row: 2; } #right { grid-column: 3; grid-row: 2; }
+  .overlay { position: fixed; inset: 0; background: rgba(30,25,20,.92); display: none; align-items: center; justify-content: center; z-index: 10; padding: 8px; }
+  .overlay.show { display: flex; }
+  .card { background: #f6efe0; border: 4px solid #555; border-radius: 14px; width: 100%; max-width: 680px; padding: 12px; text-align: center; }
+  .bars { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+  .bar { width: 220px; height: 24px; border: 3px solid #555; border-radius: 12px; background: #ddd; overflow: hidden; position: relative; }
+  .bar > i { display: block; height: 100%; width: 100%; background: #d63b3b; transition: width .4s; }
+  .bar.me > i { background: #3b9d3b; }
+  .lbl { font-size: .9rem; }
+  #bossrow { display: flex; justify-content: space-between; align-items: flex-start; }
+  #bossSvg { width: 60%; max-width: 320px; transition: transform .1s; }
+  #bossSvg.hit { animation: shake .4s; } @keyframes shake { 25% { transform: translateX(-12px) rotate(-3deg);} 75% { transform: translateX(12px) rotate(3deg);} }
+  #herorow { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 10px; }
+  .moves { flex: 1 1 100%; justify-content: center; }
+  .bar { max-width: 100%; }
+  #heroSvg { width: 80px; }
+  #heroSvg.hit { animation: shake .4s; }
+  .moves { display: flex; gap: 12px; }
+  @media (max-width: 480px) { .bar { width: 160px; } }
+  .moves button, .big { font-family: inherit; font-size: 1.2rem; border: 3px solid #555; border-radius: 10px; padding: 10px 18px; background: #fff; cursor: pointer; }
+  #fire { background: #ffb36b; } #ice { background: #9fd8ff; }
+  .moves button:disabled { opacity: .5; }
+  #bmsg { min-height: 56px; font-size: 1rem; margin: 6px 0; }
+  .big { background: #ffe48a; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>🦃 The Thanksgiving Maze 🦃</h1>
+  <div id="quest"></div>
+  <canvas id="board" width="672" height="480"></canvas>
+  <div id="msg"></div>
+  <div id="dpad">
+    <button id="up">▲</button><button id="left">◀</button><button id="down">▼</button><button id="right">▶</button>
+  </div>
+</div>
+
+<!-- Boss battle -->
+<div class="overlay" id="battle"><div class="card">
+  <div id="bossrow">
+    <svg id="bossSvg" viewBox="0 0 300 260">
+      <g stroke="#444" stroke-width="3" fill="none" stroke-linecap="round">
+        <ellipse cx="150" cy="95" rx="135" ry="80" fill="#f3d9a4"/>
+        <path d="M30 95 L85 95 M60 40 L100 70 M150 15 L150 60 M240 40 L200 70 M270 95 L215 95"/>
+        <circle cx="150" cy="185" r="48" fill="#fff"/>
+        <path d="M128 145 L100 70 M172 145 L205 70" stroke-width="6"/>
+        <ellipse cx="85" cy="58" rx="36" ry="30" fill="#fff"/>
+        <ellipse cx="215" cy="58" rx="36" ry="30" fill="#fff"/>
+        <path d="M70 80 L90 80 L80 100 Z M210 80 L230 80 L220 100 Z" fill="#e8a33a"/>
+        <path d="M120 225 L100 250 M150 232 L150 255 M180 225 L200 250 M92 250 L110 252 M142 255 L158 255 M192 250 L208 252"/>
+      </g>
+      <circle cx="72" cy="50" r="4"/><circle cx="98" cy="50" r="4"/><circle cx="202" cy="50" r="4"/><circle cx="228" cy="50" r="4"/>
+    </svg>
+    <div class="bars"><div class="lbl">Life</div><div class="bar"><i id="bossHP"></i></div></div>
+  </div>
+  <div id="bmsg"></div>
+  <div id="herorow">
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      <svg id="heroSvg" viewBox="0 0 80 130"><g stroke="#444" stroke-width="3" fill="#fff"><circle cx="40" cy="35" r="24"/><path d="M16 30 Q40 2 64 30 L74 30" fill="#9fd8ff"/><rect x="25" y="60" width="30" height="45" rx="8"/><circle cx="14" cy="80" r="8"/><circle cx="66" cy="80" r="8"/><circle cx="30" cy="115" r="9"/><circle cx="50" cy="115" r="9"/></g><circle cx="32" cy="38" r="2.5"/><circle cx="48" cy="38" r="2.5"/><path d="M30 46 Q40 54 50 46" stroke="#444" stroke-width="2.5" fill="none"/></svg>
+      <div><div class="lbl">your Life</div><div class="bar me"><i id="myHP"></i></div></div>
+    </div>
+    <div class="moves"><button id="fire">🔥 Fire</button><button id="ice">❄️ Ice</button></div>
+  </div>
+</div></div>
+
+<!-- Win / info -->
+<div class="overlay" id="win"><div class="card">
+  <div style="font-size:4rem">🦃🥔🥘🥧</div>
+  <h2>You did it!</h2>
+  <p>You beat the two-headed turkey and now you have mashed potatoes, stuffing, pie and turkey.<br><b>Happy Thanksgiving dinner!</b></p>
+  <button class="big" onclick="location.reload()">Play again</button>
+</div></div>
+
+<script>
+const MAP = ["#####################","#....$#...........#.#","#.#####...B...#.#.#.#","#...............#.#.#","#.#######.#.#.###.#.#","#.#.....#.#.#.......#","#.#.###.#.#.###.#####","#.#.#U#.....MI#.....#","#.#.#.#.###########.#","#.......#.........#.#","###.#####.#######.#.#","#...#...#...#..P#...#","#.#.#.#.###.#.#####.#","#S#...#.....#.......#","#####################"];
+const T = 32, W = MAP[0].length, H = MAP.length;
+const cv = document.getElementById('board'), ctx = cv.getContext('2d');
+const msgEl = document.getElementById('msg');
+
+// ---------- state ----------
+const find = ch => { for (let y = 0; y < H; y++) { const x = MAP[y].indexOf(ch); if (x >= 0) return { x, y }; } };
+const start = find('S');
+const pos = { x: start.x, y: start.y };
+const things = { P: find('P'), U: find('U'), $: find('$'), M: find('M'), I: find('I'), B: find('B') };
+const have = { potato: false, stuffing: false, money: false, gaveMoney: false, pie: false, won: false };
+let inBattle = false;
+const wall = (x, y) => MAP[y][x] === '#';
+
+const QUEST = [
+  ['potato', '🥔 Mashed potatoes'], ['stuffing', '🥘 Stuffing'], ['money', '💰 The $1000'],
+  ['gaveMoney', '🧔 Pay the man'], ['pie', '🥧 Pie'], ['won', '🦃 Beat the boss']
+];
+function say(t) { msgEl.textContent = t; }
+function renderQuest() {
+  const el = document.getElementById('quest'); el.innerHTML = '';
+  let nowSet = false;
+  QUEST.forEach(([k, label]) => {
+    const d = document.createElement('div'); d.className = 'q';
+    if (have[k]) d.classList.add('done'); else if (!nowSet) { d.classList.add('now'); nowSet = true; }
+    d.textContent = label; el.appendChild(d);
+  });
+}
+
+// ---------- drawing ----------
+function hatch(x, y) {
+  ctx.fillStyle = '#8a8a8a'; ctx.fillRect(x, y, T, T);
+  ctx.strokeStyle = '#444'; ctx.lineWidth = 1.5; ctx.beginPath();
+  for (let i = -T; i < T * 2; i += 6) { ctx.moveTo(x + i, y + T); ctx.lineTo(x + i + T, y); }
+  ctx.stroke();
+}
+function emoji(ch, x, y, size) {
+  ctx.font = (size || 24) + 'px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(ch, x * T + T / 2, y * T + T / 2 + 2);
+}
+function draw() {
+  ctx.fillStyle = '#f6efe0'; ctx.fillRect(0, 0, cv.width, cv.height);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (wall(x, y)) hatch(x * T, y * T);
+  // start marker
+  emoji('🏠', start.x, start.y, 20);
+  if (!have.potato) emoji('🥔', things.P.x, things.P.y);
+  if (!have.stuffing) emoji('🥘', things.U.x, things.U.y);
+  if (!have.money) emoji('💰', things.$.x, things.$.y);
+  if (!have.gaveMoney) emoji('🧔', things.M.x, things.M.y);
+  if (!have.pie) emoji('🥧', things.I.x, things.I.y);
+  if (!have.won) emoji('🦃', things.B.x, things.B.y, 30);
+  // player (cap kid)
+  const px = pos.x * T + T / 2, py = pos.y * T + T / 2;
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(px, py + 1, 10, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#3b8fd9'; ctx.beginPath(); ctx.arc(px, py - 1, 10, Math.PI, 0); ctx.fill(); ctx.stroke();
+  ctx.fillRect(px - 2, py - 3, 14, 3);
+  ctx.fillStyle = '#333'; ctx.fillRect(px - 5, py + 1, 2, 3); ctx.fillRect(px + 3, py + 1, 2, 3);
+  ctx.beginPath(); ctx.arc(px, py + 5, 4, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+}
+
+// ---------- movement & events ----------
+function move(dx, dy) {
+  if (inBattle || have.won) return;
+  const nx = pos.x + dx, ny = pos.y + dy;
+  if (nx < 0 || ny < 0 || nx >= W || ny >= H || wall(nx, ny)) return;
+  const man = things.M, boss = things.B;
+  if (!have.gaveMoney && nx === man.x && ny === man.y) {
+    if (have.money) {
+      have.gaveMoney = true;
+      say('🧔 "Wow, thank you for the $1000! The pie is right behind me. Go ahead!" Now go up to the boss.');
+    } else {
+      say('🧔 "I want $1000! Go find the money first." (Get the mashed potatoes and stuffing, then go up to the $1000.)');
+      return;
+    }
+  }
+  if (!have.won && nx === boss.x && ny === boss.y) {
+    if (have.pie) { pos.x = nx; pos.y = ny; draw(); startBattle(); return; }
+    say('🦃 "GOBBLE! Not yet, little one!" Get the pie first (pay the man with the $1000).');
+    return;
+  }
+  pos.x = nx; pos.y = ny;
+  const at = ch => things[ch] && things[ch].x === nx && things[ch].y === ny;
+  if (!have.potato && at('P')) { have.potato = true; say('🥔 You found the mashed potatoes! Now find the stuffing.'); }
+  else if (!have.stuffing && at('U')) { have.stuffing = true; say('🥘 You found the stuffing!' + (have.potato ? ' Now go up to the $1000.' : ' Now find the mashed potatoes.')); }
+  else if (!have.money && at('$')) {
+    if (have.potato && have.stuffing) { have.money = true; say('💰 You got the $1000! Now take it to the man in the middle.'); }
+    else say('💰 The $1000 is here, but you need the mashed potatoes AND the stuffing first!');
+  }
+  else if (!have.pie && at('I')) { have.pie = true; say('🥧 You got the pie! Now go up to the boss for the boss battle!'); }
+  renderQuest(); draw();
+}
+
+// held-key / button repeat
+const keys = { ArrowUp: [0, -1], w: [0, -1], ArrowDown: [0, 1], s: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], ArrowRight: [1, 0], d: [1, 0] };
+let timer = null, curDir = null;
+function hold(dir) { stopHold(); curDir = dir; move(...dir); timer = setInterval(() => move(...dir), 130); }
+function stopHold() { clearInterval(timer); timer = null; curDir = null; }
+addEventListener('keydown', e => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (keys[k]) { e.preventDefault(); if (!e.repeat) hold(keys[k]); }
+});
+addEventListener('keyup', e => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; if (keys[k] && curDir === keys[k]) stopHold(); });
+[['up', [0, -1]], ['down', [0, 1]], ['left', [-1, 0]], ['right', [1, 0]]].forEach(([id, dir]) => {
+  const b = document.getElementById(id);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); hold(dir); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, stopHold));
+});
+
+// ---------- boss battle ----------
+let bossHP, myHP, weak, busy;
+const $ = id => document.getElementById(id);
+function bossHint() {
+  weak = Math.random() < 0.5 ? 'fire' : 'ice';
+  $('bmsg').textContent = weak === 'fire' ? '🥶 The turkey is shivering! Fire would be super effective!' : '🥵 The turkey is sweating! Ice would be super effective!';
+}
+function bars() { $('bossHP').style.width = Math.max(0, bossHP) + '%'; $('myHP').style.width = Math.max(0, myHP) + '%'; }
+function startBattle() {
+  inBattle = true; stopHold(); bossHP = 100; myHP = 100; busy = false;
+  $('battle').classList.add('show'); bars(); bossHint();
+  $('fire').disabled = $('ice').disabled = false;
+}
+function shake(id) { const e = $(id); e.classList.remove('hit'); void e.offsetWidth; e.classList.add('hit'); }
+function attack(kind) {
+  if (busy) return; busy = true;
+  $('fire').disabled = $('ice').disabled = true;
+  const good = kind === weak;
+  const dmg = good ? 28 + Math.floor(Math.random() * 6) : 7 + Math.floor(Math.random() * 4);
+  bossHP -= dmg; bars(); shake('bossSvg');
+  $('bmsg').textContent = (kind === 'fire' ? '🔥 FIRE! ' : '❄️ ICE! ') + (good ? 'Super effective! -' : 'It only tickled. -') + dmg;
+  if (bossHP <= 0) { setTimeout(win, 900); return; }
+  setTimeout(() => {
+    const hits = ['Peck peck!', 'Gobble blast!', 'Drumstick smack!', 'Feather storm!'];
+    const d = 10 + Math.floor(Math.random() * 9);
+    myHP -= d; bars(); shake('heroSvg');
+    $('bmsg').textContent = '🦃 ' + hits[Math.floor(Math.random() * hits.length)] + ' You lose ' + d + ' life.';
+    if (myHP <= 0) { setTimeout(lose, 900); return; }
+    setTimeout(() => { bossHint(); busy = false; $('fire').disabled = $('ice').disabled = false; }, 900);
+  }, 900);
+}
+function lose() {
+  $('bmsg').textContent = '😵 You ran out of life! The turkey chased you out. Try again!';
+  setTimeout(() => { $('battle').classList.remove('show'); inBattle = false; pos.x = things.B.x; pos.y = things.B.y + 1; if (wall(pos.x, pos.y)) { pos.x = start.x; pos.y = start.y; }
+    say('😵 The turkey beat you this time. Walk up to the boss to fight again!'); draw(); }, 1600);
+}
+function win() {
+  have.won = true; renderQuest();
+  $('battle').classList.remove('show'); $('win').classList.add('show');
+  say('🦃 You win!'); draw();
+}
+$('fire').onclick = () => attack('fire');
+$('ice').onclick = () => attack('ice');
+
+// ---------- go ----------
+say('"I need mashed potatoes, stuffing, pie and turkey." Use the arrow keys (or the buttons) to start!');
+renderQuest(); draw();
+</script>
+</body>
+</html>
